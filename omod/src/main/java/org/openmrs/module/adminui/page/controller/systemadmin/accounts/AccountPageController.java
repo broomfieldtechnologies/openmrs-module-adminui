@@ -188,7 +188,7 @@ public class AccountPageController {
 		}
 		
 		accountValidator.validate(account, errors);
-		
+		setEnterpriseAttribute(account);
 		if (!errors.hasErrors()) {
 			try {
 				account.setPassword(user, otherAccountData.getPassword());
@@ -223,7 +223,21 @@ public class AccountPageController {
 		return "systemadmin/accounts/account";
 		
 	}
-	
+
+	public void setEnterpriseAttribute (Account account) {
+		if( Context.getAuthenticatedUser() != null
+				&& Context.getAuthenticatedUser().getPerson() != null
+				&& Context.getAuthenticatedUser().getPerson().getAttribute("Enterprise") != null) {
+			String enterpriseValue = Context.getAuthenticatedUser().getPerson().getAttribute("Enterprise").getValue();
+			if(StringUtils.isNotBlank(enterpriseValue)) {
+				PersonAttributeType personAttributeByName = Context.getPersonService()
+						.getPersonAttributeTypeByName("Enterprise");
+				PersonAttribute attribute = new PersonAttribute(personAttributeByName, enterpriseValue);
+				account.getPerson().addAttribute(attribute);
+			}
+		}
+	}
+
 	public void setModelAttributes(PageModel model, Account account, OtherAccountData otherAccountData,
 	                               AccountService accountService, AdministrationService administrationService,
 	                               ProviderManagementService providerManagementService, UiUtils uu,
