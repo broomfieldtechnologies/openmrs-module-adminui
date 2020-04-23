@@ -10,6 +10,7 @@
 package org.openmrs.module.adminui.page.controller.metadata.locations;
 
 import org.apache.commons.lang.ArrayUtils;
+import org.apache.commons.lang.StringUtils;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.openmrs.Location;
@@ -32,8 +33,10 @@ import org.springframework.web.bind.annotation.RequestParam;
 
 import javax.servlet.http.HttpServletRequest;
 import java.util.HashSet;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Set;
+import java.util.function.Predicate;
 
 public class LocationPageController {
 
@@ -62,11 +65,15 @@ public class LocationPageController {
         for (Location loc : descendants) {
         	locations.remove(loc);
         }
+        //String enterprise = getDefaultEnterprise();
+        List<LocationAttributeType> allLocationAttributeTypes = locationService.getAllLocationAttributeTypes();
+        filterEnterpriseAttribute(allLocationAttributeTypes);
 
         model.addAttribute("location", location);
         model.addAttribute("existingLocations", locations);
         model.addAttribute("locationTags", locationService.getAllLocationTags());
-        model.addAttribute("attributeTypes", locationService.getAllLocationAttributeTypes());
+        model.addAttribute("attributeTypes", allLocationAttributeTypes);
+       // model.addAttribute("defaultEnterprise", enterprise);
     }
     
     private Set<Location> getDescendants(Set<Location> childLocations) {
@@ -120,10 +127,15 @@ public class LocationPageController {
 
         LocationAttribute attr = new LocationAttribute();
         List<LocationAttributeType> locationAttributeList = locationService.getAllLocationAttributeTypes();
+        filterEnterpriseAttribute(locationAttributeList);
         for (LocationAttributeType locAttr : locationAttributeList) {
             attr.setLocationAttributeId(locAttr.getId());
             attr.setValue(request.getParameter("attribute." + locAttr.getId()));
             attr.setLocation(location);
+        }
+
+        if(location.getParentLocation() == null || location.getParentLocation().getId() == null) {
+            setLocationEnterpriseAttribute(location, locationService);
         }
 
         if (!errors.hasErrors()) {
@@ -181,5 +193,36 @@ public class LocationPageController {
             }
         }
         return message;
+    }
+
+    private String getDefaultEnterprise() {
+        String enterpriseValue = "";
+        if( Context.getAuthenticatedUser() != null
+                && Context.getAuthenticatedUser().getPerson() != null
+                && Context.getAuthenticatedUser().getPerson().getAttribute("Enterprise") != null) {
+            enterpriseValue = Context.getAuthenticatedUser().getPerson().getAttribute("Enterprise").getValue();
+        }
+        return enterpriseValue;
+    }
+
+    private void setLocationEnterpriseAttribute (Location location, LocationService locationService) {
+        String enterpriseVal = getDefaultEnterprise();
+        LocationAttributeType locationAttributeTypeByName = locationService.getLocationAttributeTypeByName("Enterprise");
+        LocationAttribute attr = new LocationAttribute();
+        attr.setLocationAttributeId(locationAttributeTypeByName.getId());
+        attr.setValue(enterpriseVal);
+        attr.setLocation(location);
+    }
+
+    void filterEnterpriseAttribute(List<LocationAttributeType> locationAttributeTypes) {
+        //Predicate<LocationAttributeType> condition = locAttrType -> locAttrType.getName().equals("Enterprise");
+        Iterator<LocationAttributeType> itr = locationAttributeTypes.iterator();
+        while(itr.hasNext()){
+            LocationAttributeType locAttrType = itr.next();
+            if(StringUtils.equals("Enterprise",locAttrType.getName())) {
+                itr.remove();
+                break;
+            }
+        }
     }
 }
